@@ -1,0 +1,16 @@
+# Core LangGraph and LangChain dependencies
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-google-genai>=2.0.0
+
+# Web search functionality
+tavily-python>=0.5.0
+
+# Data handling and validation
+pydantic>=2.0.0
+
+# Async support
+asyncio-compat
+
+# Additional utilities
+typing-extensions>=4.0.0
