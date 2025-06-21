@@ -179,9 +179,22 @@ def initialize_session_state():
 
 # Helper Functions
 def setup_api_keys():
-    """Setup API keys in sidebar"""
+    """Setup API keys - use environment variables if available, otherwise show sidebar"""
+    # First check if API keys are already available in environment (e.g., from Streamlit Cloud secrets)
+    google_key_env = os.getenv("GOOGLE_API_KEY")
+    tavily_key_env = os.getenv("TAVILY_API_KEY")
+    
+    # If both keys are available in environment, use them directly
+    if google_key_env and tavily_key_env:
+        # Show a small success indicator in sidebar but don't ask for keys
+        with st.sidebar:
+            st.success("🔑 API keys configured from environment")
+        return True
+    
+    # If keys are not in environment, show the configuration sidebar
     with st.sidebar:
         st.header("🔧 Configuration")
+        st.info("💡 Configure your API keys to start learning")
         
         google_key = st.text_input(
             "Google API Key", 
@@ -201,8 +214,11 @@ def setup_api_keys():
         if tavily_key:
             os.environ["TAVILY_API_KEY"] = tavily_key
         
-        # Check if keys are set
-        keys_configured = bool(google_key and tavily_key)
+        # Check if keys are set (either from input or environment)
+        keys_configured = bool(
+            (google_key or google_key_env) and 
+            (tavily_key or tavily_key_env)
+        )
         
         if keys_configured:
             st.success("✅ API keys configured")
