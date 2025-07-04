@@ -17,22 +17,30 @@ from datetime import datetime
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'agentic-tutor', 'src'))
 
 try:
-    from agent.graph import TutorWorkflowRunner, InterruptHandler, ProgressTracker
+    from agent.runner import TutorWorkflowRunner
+    from agent.utils.handlers import InterruptHandler
+    from agent.utils.tracker import ProgressTracker
     from langchain_core.messages import HumanMessage, AIMessage
     IMPORTS_SUCCESSFUL = True
 except ImportError as e:
-    st.error(f"❌ Cannot import required modules: {str(e)}")
-    st.error("Please ensure the agentic-tutor package is properly installed and the path is correct.")
-    st.info("Expected path: agentic-tutor/src/agent/graph.py")
+    st.error(f"❌ Cannot import required modules from the new structure: {str(e)}")
+    st.error("Please ensure the agentic-tutor package's refactored structure is correct.")
+    st.info("Expected modules: `agent/runner.py`, `agent/utils/handlers.py`, `agent/utils/tracker.py`")
     
     # Show debug info
     with st.expander("🔧 Debug Information"):
         current_dir = os.path.dirname(__file__)
-        expected_path = os.path.join(current_dir, 'agentic-tutor', 'src', 'agent', 'graph.py')
+        runner_path = os.path.join(current_dir, 'agentic-tutor', 'src', 'agent', 'runner.py')
+        handlers_path = os.path.join(current_dir, 'agentic-tutor', 'src', 'agent', 'utils', 'handlers.py')
+        tracker_path = os.path.join(current_dir, 'agentic-tutor', 'src', 'agent', 'utils', 'tracker.py')
         st.json({
             "current_directory": current_dir,
-            "expected_graph_path": expected_path,
-            "path_exists": os.path.exists(expected_path),
+            "runner_path": runner_path,
+            "runner_path_exists": os.path.exists(runner_path),
+            "handlers_path": handlers_path,
+            "handlers_path_exists": os.path.exists(handlers_path),
+            "tracker_path": tracker_path,
+            "tracker_path_exists": os.path.exists(tracker_path),
             "python_path": sys.path[:3],  # Show first 3 paths
             "import_error": str(e)
         })
