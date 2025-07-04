@@ -44,6 +44,7 @@ class AgentState(BaseModel):
     # Q&A tracking
     last_qa_question: str = Field(default="", description="Last question asked by user")
     last_qa_answer: str = Field(default="", description="Last answer provided to user")
+    questions_asked: List[Dict[str, str]] = Field(default_factory=list, description="A list of all questions asked and answers received during the session")
     
     # Session completion data
     session_completion_data: Dict[str, Any] = Field(default_factory=dict, description="Complete session summary data")

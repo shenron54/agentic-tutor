@@ -32,19 +32,10 @@ async def session_summary_node(state: AgentState, config: RunnableConfig) -> Dic
     total_prerequisites_found = len(prerequisites)
     topics_learned = len(completed_topics)
     
-    # Extract questions asked during the session
-    questions_asked = []
-    if state.messages:
-        for msg in state.messages:
-            if hasattr(msg, 'content') and "Q&A about" in str(msg.content):
-                # Extract question from Q&A format
-                content = str(msg.content)
-                if "**Question:**" in content:
-                    question_start = content.find("**Question:**") + len("**Question:**")
-                    question_end = content.find("**Answer:**")
-                    if question_end > question_start:
-                        question = content[question_start:question_end].strip()
-                        questions_asked.append(question)
+    # Extract questions asked during the session from the state
+    questions_asked_from_state = state.questions_asked
+    questions_count = len(questions_asked_from_state)
+    questions_list_for_prompt = "; ".join([qa['question'] for qa in questions_asked_from_state]) if questions_asked_from_state else "No questions asked"
     
     # Create comprehensive summary prompt
     summary_prompt = ChatPromptTemplate.from_messages([
@@ -95,8 +86,8 @@ Make it personal, encouraging, and specific to their actual learning path."""),
         roadmap=" → ".join(learning_roadmap),
         topics_completed=topics_learned,
         total_topics=total_topics,
-        questions_count=len(questions_asked),
-        questions_list="; ".join(questions_asked) if questions_asked else "No questions asked"
+        questions_count=questions_count,
+        questions_list=questions_list_for_prompt
     ))
     
     # Create the final summary message
@@ -121,7 +112,7 @@ Make it personal, encouraging, and specific to their actual learning path."""),
         "completed_topics": completed_topics,
         "prerequisites_known": known_prerequisites,
         "prerequisites_learned": unknown_prerequisites,
-        "questions_asked_count": len(questions_asked),
+        "questions_asked_count": questions_count,
         "session_summary": response.content
     }
     

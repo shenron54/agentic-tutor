@@ -170,7 +170,8 @@ async def topic_review_node(state: AgentState, config: RunnableConfig) -> Dict[s
                 "awaiting_user_input": True,  # Still waiting for final approval
                 "topic_complete": False,
                 "last_qa_question": user_question,  # Track the question for UI purposes
-                "last_qa_answer": answer_response.content  # Track the answer for UI purposes
+                "last_qa_answer": answer_response.content,  # Track the answer for UI purposes
+                "questions_asked": state.questions_asked + [{"question": user_question, "answer": answer_response.content}]
             }
         
         elif feedback_type == "regenerate":
@@ -197,7 +198,8 @@ async def topic_review_node(state: AgentState, config: RunnableConfig) -> Dict[s
                 "awaiting_user_input": False,
                 "topic_complete": True,
                 "last_qa_question": "",  # Clear Q&A state when moving on
-                "last_qa_answer": ""  # Clear Q&A state when moving on
+                "last_qa_answer": "",  # Clear Q&A state when moving on
+                "questions_asked": state.questions_asked
             }
     
     else:
@@ -211,7 +213,8 @@ async def topic_review_node(state: AgentState, config: RunnableConfig) -> Dict[s
             "awaiting_user_input": False,
             "topic_complete": True,
             "last_qa_question": "",  # Clear Q&A state when moving on
-            "last_qa_answer": ""  # Clear Q&A state when moving on
+            "last_qa_answer": "",  # Clear Q&A state when moving on
+            "questions_asked": state.questions_asked
         }
 
 

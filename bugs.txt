@@ -1,2 +1,0 @@
-1. If all options are selected, state management is not working. (Shows previously learnt topics too)
-2. 
