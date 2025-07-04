@@ -129,7 +129,7 @@ Runs a quick test of the complete workflow.
 ### Usage Example
 
 ```python
-from agentic-tutor.src.agent.graph import graph_with_memory
+from agentic-tutor.src.agent.workflow import graph_with_memory
 
 # Start a learning session
 config = {"configurable": {"thread_id": "my-learning-session"}}
