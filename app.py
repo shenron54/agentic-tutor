@@ -327,6 +327,67 @@ def display_lesson(lesson_content: str, topic: str):
     
     st.markdown('</div>', unsafe_allow_html=True)
 
+async def display_streaming_lesson(runner, initial_state, config):
+    """Simple streaming display using st.empty() containers"""
+    
+    # Create simple containers for streaming display
+    progress_placeholder = st.empty()
+    content_placeholder = st.empty()
+    
+    accumulated_content = ""
+    current_node = ""
+    lesson_started = False
+    
+    try:
+        # Use enhanced streaming method
+        async for event in runner.stream_with_llm_tokens(initial_state, config):
+            event_type = event.get("type", "")
+            
+            if event_type == "llm_token":
+                # Accumulate and display LLM tokens in real-time
+                accumulated_content += event["content"]
+                
+                # Start lesson display on first token
+                if not lesson_started:
+                    lesson_started = True
+                    progress_placeholder.info("✍️ Generating lesson content...")
+                
+                # Display accumulated content in a lesson container
+                content_placeholder.markdown(
+                    f'<div class="lesson-container">{accumulated_content}</div>', 
+                    unsafe_allow_html=True
+                )
+                
+            elif event_type == "node_complete":
+                current_node = event.get("node", "unknown")
+                
+                # Update progress based on node completion
+                if "research" in current_node.lower():
+                    progress_placeholder.success("✅ Completed: Research")
+                elif "critique" in current_node.lower():
+                    progress_placeholder.success("✅ Completed: Quality Review")
+                elif "generation" in current_node.lower():
+                    progress_placeholder.success("✅ Completed: Lesson Generation")
+                    
+            elif event_type == "checkpoint":
+                # Checkpoint reached - likely an interrupt
+                progress_placeholder.info("🔄 Checkpoint reached")
+                
+            elif event_type == "error":
+                st.error(f"❌ Error: {event.get('message', 'Unknown error')}")
+                break
+        
+        # Clear progress indicator when done
+        if accumulated_content:
+            progress_placeholder.empty()
+            
+    except Exception as e:
+        st.error(f"❌ Streaming error: {str(e)}")
+        # Fallback to non-streaming mode
+        return False
+    
+    return True
+
 def handle_prerequisite_selection(interrupt_data: Dict[str, Any]):
     """Handle prerequisite selection interrupt"""
     st.subheader("🤔 Prerequisite Knowledge Assessment")
@@ -409,28 +470,65 @@ def handle_topic_review(interrupt_data: Dict[str, Any]):
     
     return None
 
-async def start_learning_session(topic: str):
-    """Start a new learning session"""
+async def start_learning_session(topic: str, enable_streaming: bool = True):
+    """Start a new learning session with optional streaming"""
     try:
         st.session_state.session_config = st.session_state.workflow_runner.create_session()
         st.session_state.workflow_active = True
         
-        with st.spinner("🚀 Starting your learning journey..."):
-            result = await st.session_state.workflow_runner.start_learning_session(
-                topic, 
+        # Enable streaming tokens if requested
+        if enable_streaming:
+            st.session_state.session_config["configurable"]["stream_tokens"] = True
+        
+        # Create initial state
+        initial_state = {
+            "initial_topic": topic,
+            "messages": [HumanMessage(content=f"I want to learn about {topic}")],
+            "workflow_stage": "start"
+        }
+        
+        # Add to learning history
+        st.session_state.learning_history.append({
+            "timestamp": datetime.now(),
+            "topic": topic,
+            "action": "started"
+        })
+        
+        if enable_streaming:
+            # Use streaming mode
+            st.info("🚀 Starting your learning journey with real-time streaming...")
+            
+            # Stream the workflow with LLM tokens
+            streaming_success = await display_streaming_lesson(
+                st.session_state.workflow_runner,
+                initial_state,
                 st.session_state.session_config
             )
+            
+            if not streaming_success:
+                st.warning("⚠️ Streaming failed, falling back to standard mode...")
+                # Fall back to non-streaming mode
+                with st.spinner("🚀 Starting your learning journey..."):
+                    result = await st.session_state.workflow_runner.start_learning_session(
+                        topic, 
+                        st.session_state.session_config
+                    )
+            else:
+                # After streaming, get the current state
+                result = st.session_state.workflow_runner.get_session_state(
+                    st.session_state.session_config
+                )
+        else:
+            # Use standard blocking mode
+            with st.spinner("🚀 Starting your learning journey..."):
+                result = await st.session_state.workflow_runner.start_learning_session(
+                    topic, 
+                    st.session_state.session_config
+                )
         
-        if result["success"]:
+        if result.get("success", True):
             st.session_state.current_state = result.get("state", {})
             st.session_state.current_interrupt = result.get("interrupt")
-            
-            # Add to learning history
-            st.session_state.learning_history.append({
-                "timestamp": datetime.now(),
-                "topic": topic,
-                "action": "started"
-            })
             
             st.success(f"✅ Started learning session for: **{topic}**")
             return True
