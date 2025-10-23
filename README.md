@@ -25,10 +25,16 @@ The project has undergone a significant refactoring to a modular, scalable archi
 - **🔄 Async Support**: Fully asynchronous implementation for a responsive and non-blocking workflow.
 - **🛠️ Robust State Management**: Pydantic models provide type-safe state management.
 - **📄 Formal Documentation**: `BUGS.md` and `FEATURES.md` are now used to track project status.
+- **⚡ Streaming Support**: Real-time token-level streaming for immediate feedback (both in UI and API).
+- **🌐 REST API**: FastAPI server for external integration with SSE streaming endpoints.
 
-#### Recent Bug Fixes
-- ✅ **Resolved Question Tracking**: Questions are now reliably tracked in the agent's state, fixing the inaccurate count in the session summary.
-- ✅ **Identified Roadmap Generation Bug**: Pinpointed the root cause of the "all-but-one" prerequisite bug, which was due to an ambiguous LLM prompt.
+#### Recent Updates
+- ✅ **Streaming & API Integration**: Added complete FastAPI server with SSE streaming (v1.1.0)
+- ✅ **JSON Serialization Fixed**: Resolved BaseMessage serialization with recursive `model_dump()` approach
+- ✅ **Token-Level Streaming**: Real-time LLM token streaming fully functional
+- ✅ **Full Test Coverage**: All endpoints tested with interrupts and resume functionality
+- ✅ **Resolved Question Tracking**: Questions are now reliably tracked in the agent's state
+- ✅ **Identified Roadmap Generation Bug**: Pinpointed the root cause of the "all-but-one" prerequisite bug
 
 ### 🐛 Bugs and ✨ Features
 
@@ -78,11 +84,51 @@ The agentic workflow is structured as a state graph, allowing for complex, condi
 
 ### Running the Application
 
-The primary way to run the application is through the Streamlit UI.
+#### Option 1: Streamlit UI (Recommended for Learning)
+
+The primary way to interact with the tutoring system is through the beautiful Streamlit interface:
 
 ```bash
 streamlit run app.py
 ```
+
+This provides an interactive, user-friendly experience with:
+- Real-time streaming responses (token-by-token)
+- Visual progress tracking
+- Interactive lesson reviews and Q&A
+- Session history
+
+#### Option 2: FastAPI Server (For External Integration)
+
+For integrating the tutor into external applications, use the REST API:
+
+```bash
+python api_server.py
+```
+
+This starts a FastAPI server on `http://localhost:8000` with:
+- **Streaming endpoints** with Server-Sent Events (SSE)
+- **Session management** with stateful workflows
+- **RESTful API** for easy integration
+- **Auto-generated documentation** at `/docs`
+
+**Quick API Example:**
+```bash
+# Start a streaming session
+curl -N -X POST "http://localhost:8000/tutor/stream/my_session" \
+  -H "Content-Type: application/json" \
+  -d '{"topic": "Neural Networks", "stream_tokens": true}'
+```
+
+For detailed API documentation, see **[API_GUIDE.md](./API_GUIDE.md)**
+
+**API Features:**
+- ✅ Real-time token streaming with Server-Sent Events
+- ✅ Session management with state persistence  
+- ✅ Interrupt handling for human-in-the-loop workflows
+- ✅ Comprehensive error handling and recovery
+- ✅ Auto-generated OpenAPI documentation
+- ✅ Test clients included (HTML + Python)
 
 ### Usage Example (Programmatic)
 
@@ -114,6 +160,8 @@ print(f"Current topic: {snapshot.values['current_topic']}")
 - **Search**: Tavily
 - **State Management**: Pydantic
 - **UI**: Streamlit
+- **API**: FastAPI with Server-Sent Events (SSE)
+- **Deployment**: Uvicorn
 
 ## Contributing
 
