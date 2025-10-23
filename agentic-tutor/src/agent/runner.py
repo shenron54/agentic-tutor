@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
@@ -148,6 +148,62 @@ class TutorWorkflowRunner:
                 "timestamp": asyncio.get_event_loop().time()
             }
     
+    async def stream_with_llm_tokens(self, initial_state_or_command, config: Dict[str, Any]):
+        """Enhanced streaming that includes LLM tokens - builds on existing method.
+        
+        Args:
+            initial_state_or_command: Initial state dict or Command for resuming
+            config: Session configuration
+            
+        Yields:
+            Dictionaries with token-level streaming events and node updates
+        """
+        try:
+            # Use LangGraph's astream_events for token-level streaming
+            async for event in self.graph.astream_events(initial_state_or_command, config, version="v2"):
+                event_type = event.get("event", "")
+                
+                # Handle LLM token streaming
+                if event_type == "on_chat_model_stream":
+                    chunk = event.get("data", {}).get("chunk", {})
+                    # Check if chunk has content
+                    if hasattr(chunk, 'content') and chunk.content:
+                        yield {
+                            "type": "llm_token",
+                            "content": chunk.content,
+                            "node": event.get("name", "unknown"),
+                            "timestamp": asyncio.get_event_loop().time()
+                        }
+                
+                # Handle node completion
+                elif event_type == "on_chain_end":
+                    output = event.get("data", {}).get("output", {})
+                    if output:  # Only yield if there's meaningful output
+                        yield {
+                            "type": "node_complete",
+                            "node": event.get("name", "unknown"),
+                            "output": output,
+                            "timestamp": asyncio.get_event_loop().time()
+                        }
+                
+                # Handle interrupts
+                elif event_type == "on_chain_start":
+                    # Check for interrupt signals in metadata
+                    metadata = event.get("metadata", {})
+                    if metadata.get("langgraph_checkpoint_ns"):
+                        yield {
+                            "type": "checkpoint",
+                            "node": event.get("name", "unknown"),
+                            "timestamp": asyncio.get_event_loop().time()
+                        }
+                        
+        except Exception as e:
+            yield {
+                "type": "error",
+                "message": str(e),
+                "timestamp": asyncio.get_event_loop().time()
+            }
+    
     def get_session_state(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Get current session state.
         
@@ -173,7 +229,7 @@ class TutorWorkflowRunner:
                 "error": str(e)
             }
     
-    def _extract_interrupt_info(self, state) -> Dict[str, Any] or None:
+    def _extract_interrupt_info(self, state) -> Optional[Dict[str, Any]]:
         """Extract interrupt information from the graph state.
         
         Args:

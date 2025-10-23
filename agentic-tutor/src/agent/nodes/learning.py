@@ -101,10 +101,20 @@ async def generation_agent_node_main(state: AgentState, config: RunnableConfig) 
                  "Based on this research:\n{research}")
     ])
     
-    response = await llm.ainvoke(prompt.format_messages(topic=current_topic, research=state.current_research))
+    # Check if streaming is enabled in config
+    stream_tokens = config.get("configurable", {}).get("stream_tokens", False)
     
-    # Create a full lesson message with proper formatting
-    lesson_content = f"# 📖 Lesson: {current_topic}\n\n{response.content}\n\n✅ Topic completed! Ready for your review."
+    if stream_tokens:
+        # Streaming mode - accumulate content from stream
+        accumulated_content = ""
+        async for chunk in llm.astream(prompt.format_messages(topic=current_topic, research=state.current_research)):
+            if hasattr(chunk, 'content') and chunk.content:
+                accumulated_content += chunk.content
+        lesson_content = f"# 📖 Lesson: {current_topic}\n\n{accumulated_content}\n\n✅ Topic completed! Ready for your review."
+    else:
+        # Existing blocking mode (fallback)
+        response = await llm.ainvoke(prompt.format_messages(topic=current_topic, research=state.current_research))
+        lesson_content = f"# 📖 Lesson: {current_topic}\n\n{response.content}\n\n✅ Topic completed! Ready for your review."
     
     # Create lesson message for display
     lesson_message = AIMessage(content=lesson_content)
