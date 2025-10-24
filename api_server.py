@@ -94,13 +94,13 @@ class ResumeSessionRequest(BaseModel):
     """Request model for resuming a session with user response"""
     action: str = Field(..., description="Action type: 'continue', 'ask_question', 'regenerate', etc.")
     question: Optional[str] = Field(None, description="User's question (if action is 'ask_question')")
-    selected_prerequisites: Optional[List[str]] = Field(None, description="Selected prerequisites (if action is 'select_prerequisites')")
+    known_prerequisites: Optional[List[str]] = Field(None, description="Selected prerequisites (if action is 'select_prerequisites')")
     
     class Config:
         json_schema_extra = {
             "example": {
-                "action": "continue",
-                "question": None
+                "action": "select_prerequisites",
+                "known_prerequisites": ["Linear Algebra", "Calculus"]
             }
         }
 
@@ -264,8 +264,8 @@ async def resume_tutor_session(session_id: str, request: ResumeSessionRequest):
         if request.question:
             user_response["question"] = request.question
         
-        if request.selected_prerequisites:
-            user_response["selected_prerequisites"] = request.selected_prerequisites
+        if request.known_prerequisites:
+            user_response["known_prerequisites"] = request.known_prerequisites
         
         # Resume workflow
         result = await runner.resume_with_response(user_response, config)
