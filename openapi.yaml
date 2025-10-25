@@ -1,0 +1,633 @@
+openapi: 3.0.3
+info:
+  title: Agentic Tutor API
+  description: |
+    AI-powered tutoring system with streaming support for personalized learning experiences.
+    
+    ## Features
+    - **Real-time Streaming**: Token-level streaming with Server-Sent Events (SSE)
+    - **Interactive Learning**: Human-in-the-loop prerequisite selection and topic reviews
+    - **Session Management**: Stateful workflows with persistent memory
+    - **Multi-Agent Architecture**: Research, critique, and generation agents working together
+    
+    ## Workflow
+    1. Start a streaming session with a topic
+    2. Select known prerequisites when prompted
+    3. Receive personalized lessons with real-time streaming
+    4. Interact with lessons through Q&A and reviews
+    5. Progress through adaptive learning roadmap
+    
+    ## Authentication
+    Currently no authentication required. API keys for LLM services (Google, Tavily) are configured server-side.
+  version: 1.1.0
+  contact:
+    name: Agentic Tutor Support
+    url: https://github.com/your-repo/agentic-tutor
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.agentic-tutor.com
+    description: Production server (example)
+
+tags:
+  - name: health
+    description: Health check and server status
+  - name: sessions
+    description: Session management and streaming
+  - name: interactions
+    description: User interactions and workflow control
+
+paths:
+  /:
+    get:
+      tags:
+        - health
+      summary: API Information
+      description: Get basic API information and available endpoints
+      operationId: getApiInfo
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    example: "Agentic Tutor API"
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  description:
+                    type: string
+                    example: "AI-powered tutoring system with streaming support"
+                  endpoints:
+                    type: object
+                    properties:
+                      start_session:
+                        type: string
+                        example: "/tutor/stream/{session_id}"
+                      resume_session:
+                        type: string
+                        example: "/tutor/resume/{session_id}"
+                      get_state:
+                        type: string
+                        example: "/tutor/state/{session_id}"
+                      docs:
+                        type: string
+                        example: "/docs"
+
+  /health:
+    get:
+      tags:
+        - health
+      summary: Health Check
+      description: Check if the API server is running and get current status
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, unhealthy]
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-10-24T10:30:00.000Z"
+                  active_sessions:
+                    type: integer
+                    minimum: 0
+                    example: 3
+                    description: Number of currently active tutoring sessions
+
+  /tutor/stream/{session_id}:
+    post:
+      tags:
+        - sessions
+      summary: Start Streaming Session
+      description: |
+        Start a new tutoring session with real-time streaming updates using Server-Sent Events (SSE).
+        
+        The response will be a continuous stream of events including:
+        - LLM token streaming for real-time text generation
+        - Node completion events as the workflow progresses
+        - Interrupt events when user interaction is required
+        - Error events if issues occur
+        
+        **Important**: This endpoint returns Server-Sent Events, not regular JSON.
+      operationId: startStreamingSession
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          description: Unique identifier for the tutoring session
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            minLength: 1
+            maxLength: 100
+          example: "session_123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSessionRequest'
+      responses:
+        '200':
+          description: Streaming session started successfully
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-Sent Events stream with the following event types:
+                  - session_started: Session initialization
+                  - llm_token: Real-time token streaming
+                  - node_complete: Workflow node completion
+                  - checkpoint: Workflow checkpoints
+                  - interrupt: User interaction required
+                  - error: Error occurred
+                  - stream_complete: Stream finished
+              examples:
+                session_started:
+                  summary: Session Started Event
+                  value: |
+                    data: {"type": "session_started", "topic": "Neural Networks", "session_id": "session_123", "timestamp": "2025-10-24T10:30:00.000Z"}
+                
+                llm_token:
+                  summary: LLM Token Streaming
+                  value: |
+                    data: {"type": "llm_token", "content": "Neural networks are ", "node": "generation_agent", "session_id": "session_123", "timestamp": "2025-10-24T10:30:01.000Z"}
+                
+                interrupt:
+                  summary: Prerequisite Selection Interrupt
+                  value: |
+                    data: {"type": "interrupt", "interrupt_data": {"type": "prerequisite_selection", "prerequisites": ["Linear Algebra", "Calculus"]}, "session_id": "session_123", "timestamp": "2025-10-24T10:30:10.000Z"}
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: "no-cache"
+            Connection:
+              schema:
+                type: string
+                example: "keep-alive"
+            X-Accel-Buffering:
+              schema:
+                type: string
+                example: "no"
+        '422':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tutor/resume/{session_id}:
+    post:
+      tags:
+        - interactions
+      summary: Resume Session
+      description: |
+        Resume a tutoring session with user response after an interrupt.
+        
+        This endpoint is used to:
+        - Submit prerequisite selections
+        - Continue after topic reviews
+        - Ask questions about current topics
+        - Regenerate lesson content
+        
+        The response includes the updated session state and any new interrupts.
+      operationId: resumeSession
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          description: Session identifier from the streaming session
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+          example: "session_123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResumeSessionRequest'
+      responses:
+        '200':
+          description: Session resumed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeSessionResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Session session_123 not found"
+        '422':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error resuming session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tutor/state/{session_id}:
+    get:
+      tags:
+        - sessions
+      summary: Get Session State
+      description: |
+        Get the current state of a tutoring session including:
+        - Learning roadmap and progress
+        - Known and unknown prerequisites
+        - Current lesson content
+        - Active interrupts requiring user input
+        - Workflow stage and completion status
+      operationId: getSessionState
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          description: Session identifier
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+          example: "session_123"
+      responses:
+        '200':
+          description: Session state retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionStateResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error retrieving session state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tutor/session/{session_id}:
+    delete:
+      tags:
+        - sessions
+      summary: Delete Session
+      description: |
+        Delete a tutoring session and free associated resources.
+        
+        This will:
+        - Remove the session from memory
+        - Clear all associated state
+        - Stop any ongoing workflows
+        
+        **Note**: This action is irreversible.
+      operationId: deleteSession
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          description: Session identifier to delete
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+          example: "session_123"
+      responses:
+        '200':
+          description: Session deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Session session_123 deleted"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-10-24T10:40:00.000Z"
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    StartSessionRequest:
+      type: object
+      required:
+        - topic
+      properties:
+        topic:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: The topic to learn about
+          example: "Neural Networks"
+        stream_tokens:
+          type: boolean
+          default: true
+          description: Enable token-level streaming for real-time responses
+          example: true
+      example:
+        topic: "Neural Networks"
+        stream_tokens: true
+
+    ResumeSessionRequest:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum:
+            - select_prerequisites
+            - continue
+            - ask_question
+            - regenerate
+          description: |
+            Action to perform:
+            - `select_prerequisites`: Submit prerequisite selection (requires known_prerequisites)
+            - `continue`: Continue to next topic after lesson review
+            - `ask_question`: Ask a question about current topic (requires question)
+            - `regenerate`: Regenerate the current lesson content
+          example: "select_prerequisites"
+        question:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: User's question (required when action is 'ask_question')
+          example: "Can you explain more about activation functions?"
+        known_prerequisites:
+          type: array
+          items:
+            type: string
+          description: List of prerequisites the user already knows (required when action is 'select_prerequisites')
+          example: ["Linear Algebra", "Calculus"]
+      examples:
+        prerequisite_selection:
+          summary: Prerequisite Selection
+          value:
+            action: "select_prerequisites"
+            known_prerequisites: ["Linear Algebra", "Machine Learning Basics"]
+        continue_learning:
+          summary: Continue Learning
+          value:
+            action: "continue"
+        ask_question:
+          summary: Ask Question
+          value:
+            action: "ask_question"
+            question: "Can you provide more examples of backpropagation?"
+        regenerate_lesson:
+          summary: Regenerate Lesson
+          value:
+            action: "regenerate"
+
+    ResumeSessionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        session_id:
+          type: string
+          example: "session_123"
+        state:
+          $ref: '#/components/schemas/SessionState'
+        interrupt:
+          $ref: '#/components/schemas/InterruptData'
+        workflow_completed:
+          type: boolean
+          description: Whether the entire learning workflow has completed
+          example: false
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-10-24T10:35:00.000Z"
+
+    SessionStateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        state:
+          $ref: '#/components/schemas/SessionState'
+        interrupt:
+          $ref: '#/components/schemas/InterruptData'
+        workflow_stage:
+          type: string
+          enum:
+            - start
+            - prerequisites
+            - human_selection
+            - roadmap
+            - learning
+            - completion
+          example: "learning"
+
+    SessionState:
+      type: object
+      description: Current state of the tutoring session
+      properties:
+        initial_topic:
+          type: string
+          description: The original topic requested by the user
+          example: "Neural Networks"
+        workflow_stage:
+          type: string
+          description: Current stage in the learning workflow
+          example: "learning"
+        current_topic:
+          type: string
+          description: Topic currently being studied
+          example: "Activation Functions"
+        learning_roadmap:
+          type: array
+          items:
+            type: string
+          description: Personalized sequence of topics to learn
+          example: ["Linear Algebra", "Backpropagation", "Neural Networks"]
+        known_prerequisites:
+          type: array
+          items:
+            type: string
+          description: Prerequisites the user already knows
+          example: ["Machine Learning Basics", "Python Programming"]
+        unknown_prerequisites:
+          type: array
+          items:
+            type: string
+          description: Prerequisites the user needs to learn
+          example: ["Linear Algebra", "Calculus"]
+        current_lesson:
+          type: string
+          description: Content of the current lesson
+          example: "Activation functions are mathematical functions that..."
+        awaiting_user_input:
+          type: boolean
+          description: Whether the workflow is paused waiting for user interaction
+          example: true
+        questions_asked:
+          type: array
+          items:
+            type: object
+            properties:
+              question:
+                type: string
+              answer:
+                type: string
+          description: History of questions asked and answered
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+          description: Conversation history
+
+    Message:
+      type: object
+      properties:
+        content:
+          type: string
+          description: Message content
+        type:
+          type: string
+          enum: [human, ai]
+          description: Whether message is from human or AI
+        timestamp:
+          type: string
+          format: date-time
+          description: When the message was created
+
+    InterruptData:
+      type: object
+      description: Information about workflow interrupts requiring user interaction
+      properties:
+        type:
+          type: string
+          enum:
+            - prerequisite_selection
+            - topic_review
+            - session_summary
+          description: Type of interrupt
+        data:
+          type: object
+          description: Interrupt-specific data
+          properties:
+            message:
+              type: string
+              description: Message to display to user
+            prerequisites:
+              type: array
+              items:
+                type: string
+              description: Available prerequisites (for prerequisite_selection)
+            topic:
+              type: string
+              description: Current topic (for topic_review)
+            lesson_content:
+              type: string
+              description: Lesson content (for topic_review)
+        resumable:
+          type: boolean
+          description: Whether the workflow can be resumed
+          example: true
+      example:
+        type: "prerequisite_selection"
+        data:
+          message: "Please select which of these prerequisites you already know:"
+          prerequisites: ["Linear Algebra", "Calculus", "Machine Learning Basics"]
+          instructions: "Provide a list of prerequisites you're already familiar with"
+        resumable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Session not found"
+
+  examples:
+    NeuralNetworksSession:
+      summary: Neural Networks Learning Session
+      description: Example of starting a session to learn about Neural Networks
+      value:
+        topic: "Neural Networks"
+        stream_tokens: true
+
+    PrerequisiteSelection:
+      summary: Prerequisite Selection Response
+      description: Example response when selecting known prerequisites
+      value:
+        action: "select_prerequisites"
+        known_prerequisites: ["Linear Algebra", "Python Programming", "Machine Learning Basics"]
+
+    TopicReview:
+      summary: Topic Review Continue
+      description: Example response to continue after reviewing a lesson
+      value:
+        action: "continue"
+
+    QuestionAsking:
+      summary: Ask Question About Topic
+      description: Example of asking a question during lesson review
+      value:
+        action: "ask_question"
+        question: "Can you provide more examples of different activation functions and when to use each one?"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication (future implementation)
+
+# Currently no security required
+# security:
+#   - ApiKeyAuth: []
+
+externalDocs:
+  description: Full API Documentation
+  url: https://github.com/your-repo/agentic-tutor/blob/main/API_GUIDE.md

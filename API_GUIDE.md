@@ -9,7 +9,7 @@ The Agentic Tutor API provides RESTful endpoints for integrating the intelligent
 ### 1. Install Dependencies
 
 ```bash
-start test_api_client.htmlpip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 ### 2. Set Environment Variables
@@ -138,17 +138,16 @@ The server will start on `http://localhost:8000`
 **Request Body**:
 ```json
 {
-  "action": "continue",
-  "question": "Can you explain more about activation functions?",
-  "selected_prerequisites": ["Machine Learning Basics"]
+  "action": "select_prerequisites",
+  "known_prerequisites": ["Machine Learning Basics", "Linear Algebra"]
 }
 ```
 
 **Actions**:
-- `continue` - Continue to next topic
-- `ask_question` - Ask a question about current topic
-- `regenerate` - Regenerate the current lesson
-- `select_prerequisites` - Submit prerequisite selection
+- `select_prerequisites` - Submit prerequisite selection (requires `known_prerequisites` field)
+- `continue` - Continue to next topic after lesson review
+- `ask_question` - Ask a question about current topic (requires `question` field)
+- `regenerate` - Regenerate the current lesson content
 
 **Response**:
 ```json
@@ -179,8 +178,11 @@ The server will start on `http://localhost:8000`
     "initial_topic": "Neural Networks",
     "workflow_stage": "learning",
     "current_topic": "Activation Functions",
-    "learning_roadmap": ["ML Basics", "Neural Networks"],
-    "current_lesson": "..."
+    "learning_roadmap": ["Linear Algebra", "Neural Networks"],
+    "known_prerequisites": ["Machine Learning Basics"],
+    "unknown_prerequisites": ["Linear Algebra"],
+    "current_lesson": "...",
+    "awaiting_user_input": true
   },
   "interrupt": {
     "type": "topic_review",
@@ -241,7 +243,7 @@ for line in response.iter_lines():
                     # Resume with selection
                     requests.post(
                         f"{API_URL}/tutor/resume/{session_id}",
-                        json={"action": "select_prerequisites", "selected_prerequisites": []}
+                        json={"action": "select_prerequisites", "known_prerequisites": ["Linear Algebra"]}
                     )
 ```
 
@@ -309,7 +311,12 @@ curl -N -X POST "http://localhost:8000/tutor/stream/test_session" \
 # Get session state
 curl -X GET "http://localhost:8000/tutor/state/test_session"
 
-# Resume session
+# Resume with prerequisite selection
+curl -X POST "http://localhost:8000/tutor/resume/test_session" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "select_prerequisites", "known_prerequisites": ["Linear Algebra"]}'
+
+# Resume after topic review
 curl -X POST "http://localhost:8000/tutor/resume/test_session" \
   -H "Content-Type: application/json" \
   -d '{"action": "continue"}'
@@ -358,11 +365,12 @@ Visit http://localhost:8000/docs to use FastAPI's built-in Swagger UI.
 ### Session State
 
 Sessions maintain:
-- **Learning roadmap**: List of topics to learn
-- **Current progress**: Which topic is being studied
-- **Lesson history**: All completed lessons
-- **Q&A history**: Questions asked and answered
-- **Interrupt state**: Current pause point requiring user input
+- **Learning roadmap**: Personalized list of topics based on prerequisite selection
+- **Known/Unknown prerequisites**: User's knowledge state for intelligent roadmap generation
+- **Current progress**: Which topic is being studied and lesson completion status
+- **Lesson history**: All completed lessons with content and Q&A
+- **Interactive state**: Current pause points requiring user input (prerequisite selection, topic reviews)
+- **Streaming state**: Real-time token streaming and node completion tracking
 
 ## Interrupt Types
 
@@ -383,7 +391,7 @@ Occurs at the beginning of a learning session.
 ```json
 {
   "action": "select_prerequisites",
-  "selected_prerequisites": ["Topic 1"]
+  "known_prerequisites": ["Topic 1"]
 }
 ```
 
@@ -559,14 +567,69 @@ LOG_LEVEL=info
 
 **Solution**: Configure CORS middleware with appropriate origins.
 
+## Integration Examples
+
+### LibreChat Integration
+
+The API is designed for easy integration with platforms like LibreChat:
+
+```javascript
+// Custom endpoint for LibreChat
+app.post('/api/tutoring/start', async (req, res) => {
+    const { topic, userId } = req.body;
+    const sessionId = `librechat_${userId}_${Date.now()}`;
+    
+    // Start streaming session
+    const response = await fetch(`${TUTOR_API}/tutor/stream/${sessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, stream_tokens: true })
+    });
+    
+    // Handle SSE stream and forward to client
+    // ... implementation details
+});
+```
+
+### React.js Frontend
+
+```jsx
+import React, { useState, useEffect } from 'react';
+
+function TutorChat({ topic }) {
+    const [messages, setMessages] = useState([]);
+    const [currentInterrupt, setCurrentInterrupt] = useState(null);
+    
+    useEffect(() => {
+        startTutorSession(topic);
+    }, [topic]);
+    
+    const startTutorSession = (topic) => {
+        const sessionId = `session_${Date.now()}`;
+        
+        fetch(`/api/tutor/stream/${sessionId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topic, stream_tokens: true })
+        })
+        .then(response => {
+            const reader = response.body.getReader();
+            processStream(reader);
+        });
+    };
+    
+    // ... rest of component
+}
+```
+
 ## Next Steps
 
-1. **Add Authentication**: Implement JWT or API key authentication
-2. **Add Persistence**: Use Redis or PostgreSQL for session storage
-3. **Add Monitoring**: Integrate logging and metrics (Prometheus, DataDog)
-4. **Add Rate Limiting**: Protect against abuse
-5. **Add Webhooks**: Notify external systems of events
-6. **Add WebSocket Support**: For bidirectional communication
+1. **Enhanced UI Integration**: Build rich interactive components for prerequisite selection
+2. **Authentication**: Implement JWT or API key authentication for production
+3. **Persistence**: Add Redis or PostgreSQL for session storage across restarts
+4. **Monitoring**: Integrate logging and metrics (Prometheus, DataDog)
+5. **Rate Limiting**: Protect against abuse with request throttling
+6. **Webhooks**: Notify external systems of learning progress events
 
 ## Support
 
