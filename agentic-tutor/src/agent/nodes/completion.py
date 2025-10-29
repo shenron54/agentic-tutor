@@ -39,7 +39,7 @@ async def session_summary_node(state: AgentState, config: RunnableConfig) -> Dic
     
     # Create comprehensive summary prompt
     summary_prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an expert learning advisor creating a comprehensive summary of a student's AI/ML learning journey.
+        ("system", """You are an expert learning advisor creating a comprehensive summary of a student's learning journey.
 
 Your task is to create an engaging, insightful summary that:
 1. Celebrates their learning achievement
@@ -48,7 +48,7 @@ Your task is to create an engaging, insightful summary that:
 4. Suggests meaningful next steps
 5. Provides practical applications they can now understand
 
-Be encouraging, specific, and educational. Use the actual topics and information provided."""),
+Be encouraging, specific, and educational. Adapt your language and examples to the subject matter being learned. Use the actual topics and information provided."""),
         ("human", """Create a comprehensive learning session summary for this student:
 
 LEARNING GOAL:

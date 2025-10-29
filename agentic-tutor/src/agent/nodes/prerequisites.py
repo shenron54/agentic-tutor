@@ -21,22 +21,22 @@ async def prerequisites_agent_node(state: AgentState, config: RunnableConfig) ->
     search_client = get_search_client()
     
     # Search for prerequisites information (async to avoid blocking)
-    search_query = f"prerequisites for learning {state.initial_topic} machine learning AI"
+    search_query = f"prerequisites for learning {state.initial_topic} fundamentals basics"
     search_results = await asyncio.to_thread(search_client.search, search_query, max_results=3)
     
     # Create prompt for analyzing prerequisites
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an expert ML/AI educator with deep knowledge of learning sequences and dependencies.
+        ("system", """You are an expert educator with deep knowledge of learning sequences and dependencies across various subjects.
         
         Your task is to identify the ESSENTIAL and SPECIFIC prerequisites for learning the given topic.
         Focus on:
         - Direct conceptual dependencies (what must be understood first)
-        - Specific algorithms, techniques, or frameworks that are building blocks
-        - Mathematical concepts that are actually used in the topic
+        - Specific concepts, techniques, or methods that are building blocks
+        - Foundational knowledge that is actually used in the topic
         - Practical skills needed to implement or understand the topic
         
-        AVOID generic topics like "statistics" or "programming" unless they are specifically relevant.
-        BE SPECIFIC: Instead of "machine learning basics", say "supervised learning" or "gradient descent"
+        AVOID overly generic topics unless they are specifically relevant to this subject area.
+        BE SPECIFIC: Break down broad concepts into their essential components.
         
         Based on the search results and your expertise, identify 3-6 specific prerequisite topics.
         Return ONLY the prerequisite names, one per line, no explanations or bullets."""),

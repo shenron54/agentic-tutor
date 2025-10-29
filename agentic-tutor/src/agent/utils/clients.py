@@ -7,7 +7,7 @@ from tavily import TavilyClient
 def get_llm(config: RunnableConfig) -> ChatGoogleGenerativeAI:
     """Get configured Google Gemini model."""
     configuration = config.get("configurable", {})
-    model_name = configuration.get("model_name", "gemini-2.0-flash-exp")
+    model_name = configuration.get("model_name", "gemini-2.5-flash-lite")
     temperature = configuration.get("temperature", 0.1)
     
     return ChatGoogleGenerativeAI(

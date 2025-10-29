@@ -821,8 +821,8 @@ def main():
             with st.form("new_session_form"):
                 topic = st.text_input(
                     "What would you like to learn?",
-                    placeholder="e.g., Neural Networks, Computer Vision, Natural Language Processing...",
-                    help="Enter any AI/ML topic you want to learn about"
+                    placeholder="e.g., Italian Cooking, Music Theory, Ancient History, Quantum Physics...",
+                    help="Enter any topic you want to learn about"
                 )
                 
                 submitted = st.form_submit_button("🚀 Start Learning", type="primary")

@@ -21,7 +21,7 @@ async def research_agent_node(state: AgentState, config: RunnableConfig) -> Dict
     search_client = get_search_client()
     
     # Perform comprehensive search
-    search_query = f"{current_topic} tutorial explanation machine learning AI"
+    search_query = f"{current_topic} tutorial explanation fundamentals guide"
     search_results = await asyncio.to_thread(search_client.search, search_query, max_results=5)
     
     # Compile research
@@ -86,7 +86,7 @@ async def generation_agent_node_main(state: AgentState, config: RunnableConfig) 
     llm = get_llm(config)
     
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an expert educator specializing in ML/AI topics.
+        ("system", """You are an expert educator with broad knowledge across multiple subjects.
         Your task is to create clear, engaging educational content from research material.
         
         Structure your lesson with:
@@ -96,7 +96,7 @@ async def generation_agent_node_main(state: AgentState, config: RunnableConfig) 
         4. Summary of main points
         5. Connection to next learning steps
         
-        Make the content accessible and engaging for students."""),
+        Make the content accessible and engaging for students, adapting your teaching style to the subject matter."""),
         ("human", "Create a comprehensive lesson on: {topic}\n\n"
                  "Based on this research:\n{research}")
     ])

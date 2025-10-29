@@ -22,12 +22,13 @@ async def roadmap_agent_node(state: AgentState, config: RunnableConfig) -> Dict[
     topics_to_learn = state.unknown_prerequisites + [state.initial_topic]
     
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an expert curriculum designer for ML/AI education.
+        ("system", """You are an expert curriculum designer with experience across multiple educational domains.
         Your task is to take a given list of topics and arrange them in the single best learning order.
 
         IMPORTANT: You MUST ONLY use the topics from the list provided. Do NOT add any new topics, sub-topics, 
         or introductory topics. Your only job is to return the correctly ordered list of the EXACT topics you were given.
 
+        Consider the logical dependencies and progressive complexity when ordering the topics.
         Return your response as a simple ordered list, one topic per line, without numbering or bullets."""),
         ("human", "Create an optimal learning sequence for these topics:\n{topics}\n\n"
                  "The main goal is to learn the final topic in this list.")

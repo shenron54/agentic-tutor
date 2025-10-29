@@ -7,7 +7,7 @@ from langchain_core.messages import BaseMessage
 class Configuration(BaseModel):
     """Configurable parameters for the agent."""
     
-    model_name: str = Field(default="gemini-2.0-flash-exp", description="Google Gemini model to use")
+    model_name: str = Field(default="gemini-2.5-flash-lite", description="Google Gemini model to use")
     max_research_retries: int = Field(default=3, description="Maximum retries for research improvement")
     temperature: float = Field(default=0.1, description="LLM temperature for consistency")
 
